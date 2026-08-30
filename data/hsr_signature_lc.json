@@ -1,0 +1,384 @@
+{
+  "HSR": {
+    "Acheron": {
+      "signature_lightcone": {
+        "name": "Along the Passing Shore"
+      }
+    },
+    "Aglaea": {
+      "signature_lightcone": {
+        "name": "Time Woven Into Gold"
+      }
+    },
+    "Anaxa": {
+      "signature_lightcone": {
+        "name": "Life Should Be Cast to Flames"
+      }
+    },
+    "Archer": {
+      "signature_lightcone": {
+        "name": "The Hell Where Ideals Burn"
+      }
+    },
+    "Argenti": {
+      "signature_lightcone": {
+        "name": "An Instant Before A Gaze"
+      }
+    },
+    "Arlan": {
+      "signature_lightcone": {
+        "name": null
+      }
+    },
+    "Asta": {
+      "signature_lightcone": {
+        "name": null
+      }
+    },
+    "Aventurine": {
+      "signature_lightcone": {
+        "name": "Inherently Unjust Destiny"
+      }
+    },
+    "Bailu": {
+      "signature_lightcone": {
+        "name": "Time Waits for No One"
+      }
+    },
+    "Black Swan": {
+      "signature_lightcone": {
+        "name": "Reforged Remembrance"
+      }
+    },
+    "Blade": {
+      "signature_lightcone": {
+        "name": "The Unreachable Side"
+      }
+    },
+    "Boothill": {
+      "signature_lightcone": {
+        "name": "Sailing Towards a Second Life"
+      }
+    },
+    "Bronya": {
+      "signature_lightcone": {
+        "name": "But the Battle Isn't Over"
+      }
+    },
+    "Castorice": {
+      "signature_lightcone": {
+        "name": "Make Farewells More Beautiful"
+      }
+    },
+    "Cipher": {
+      "signature_lightcone": {
+        "name": "Lies Dance on the Breeze"
+      }
+    },
+    "Clara": {
+      "signature_lightcone": {
+        "name": "Something Irreplaceable"
+      }
+    },
+    "Dan Heng": {
+      "signature_lightcone": {
+        "name": null
+      }
+    },
+    "Dan Heng • Imbibitor Lunae": {
+      "signature_lightcone": {
+        "name": "Brighter Than the Sun"
+      }
+    },
+    "Feixiao": {
+      "signature_lightcone": {
+        "name": "I Venture Forth to Hunt"
+      }
+    },
+    "Firefly": {
+      "signature_lightcone": {
+        "name": "Whereabouts Should Dreams Rest"
+      }
+    },
+    "Fugue": {
+      "signature_lightcone": {
+        "name": "Long Road Leads Home"
+      }
+    },
+    "Fu Xuan": {
+      "signature_lightcone": {
+        "name": "She Already Shut Her Eyes"
+      }
+    },
+  "Gallagher": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Gepard": {
+    "signature_lightcone": {
+      "name": "Moment of Victory"
+    }
+  },
+  "Guinaifen": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Hanya": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Herta": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Himeko": {
+    "signature_lightcone": {
+      "name": "Night on the Milky Way"
+    }
+  },
+  "Hook": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Huohuo": {
+    "signature_lightcone": {
+      "name": "Night of Fright"
+    }
+  },
+  "Hyacine": {
+    "signature_lightcone": {
+      "name": "Long May Rainbows Adorn the Sky"
+    }
+  },
+  "Jade": {
+    "signature_lightcone": {
+      "name": "Yet Hope Is Priceless"
+    }
+  },
+  "Jiaoqiu": {
+    "signature_lightcone": {
+      "name": "Those Many Springs"
+    }
+  },
+  "Jing Yuan": {
+    "signature_lightcone": {
+      "name": "Before Dawn"
+    }
+  },
+  "Jingliu": {
+    "signature_lightcone": {
+      "name": "I Shall Be My Own Sword"
+    }
+  },
+  "Kafka": {
+    "signature_lightcone": {
+      "name": "Patience Is All You Need"
+    }
+  },
+  "Lingsha": {
+    "signature_lightcone": {
+      "name": "Scent Alone Stays True"
+    }
+  },
+  "Luka": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Luocha": {
+    "signature_lightcone": {
+      "name": "Echoes of the Coffin"
+    }
+  },
+  "Lynx": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "March 7th": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Misha": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Moze": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Mydei": {
+    "signature_lightcone": {
+      "name": "Flame of Blood, Blaze My Path"
+    }
+  },
+  "Natasha": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Pela": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Qingque": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Rappa": {
+    "signature_lightcone": {
+      "name": "Ninjutsu Inscription: Dazzling Evilbreaker"
+    }
+  },
+  "Robin": {
+    "signature_lightcone": {
+      "name": "Flowing Nightglow"
+    }
+  },
+  "Ruan Mei": {
+    "signature_lightcone": {
+      "name": "Past Self in Mirror"
+    }
+  },
+  "Sampo": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Seele": {
+    "signature_lightcone": {
+      "name": "In the Night"
+    }
+  },
+  "Serval": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Silver Wolf": {
+    "signature_lightcone": {
+      "name": "Incessant Rain"
+    }
+  },
+  "Sunday": {
+    "signature_lightcone": {
+      "name": "A Grounded Ascent"
+    }
+  },
+  "Sushang": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "The Herta": {
+    "signature_lightcone": {
+      "name": "Into the Unreachable Veil"
+    }
+  },
+  "Tingyun": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Topaz & Numby": {
+    "signature_lightcone": {
+      "name": "Worrisome, Blissful"
+    }
+  },
+  "Trailblazer (Destruction)": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Trailblazer (Preservation)": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Trailblazer (Harmony)": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Trailblazer (Remembrance)": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Tribbie": {
+    "signature_lightcone": {
+      "name": "If Time Were a Flower"
+    }
+  },
+  "Welt": {
+    "signature_lightcone": {
+      "name": "In the Name of the World"
+    }
+  },
+  "Xueyi": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Yanqing": {
+    "signature_lightcone": {
+      "name": "Sleep Like the Dead"
+    }
+  },
+  "Yukong": {
+    "signature_lightcone": {
+      "name": null
+    }
+  },
+  "Yunli": {
+    "signature_lightcone": {
+      "name": "Dance at Sunset"
+    }
+  },
+  "Himeko • Nova": {
+    "signature_lightcone": {
+      "name": "A Star That Lights the Night"
+    }
+  },
+  "Rin Tohsaka": {
+    "signature_lightcone": {
+      "name": "Flickering Stars"
+    }
+  },
+  "Gilgamesh": {
+    "signature_lightcone": {
+      "name": "I Am As You Behold"
+    }
+  },
+  "Phainon": {
+    "signature_lightcone": {
+     "name": "Thus Burns the Dawn"
+    }
+  },
+  "Saber": {
+    "signature_lightcone": {
+     "name": "A Thankless Coronation"
+    }
+  },
+  "Sparxie": {
+    "signature_lightcone": {
+     "name": "Dazzled by a Flowery World"
+    }
+  },
+  "Sparkle": {
+    "signature_lightcone": {
+     "name": "Earthly Escapade"
+    }
+  }
+}
+}

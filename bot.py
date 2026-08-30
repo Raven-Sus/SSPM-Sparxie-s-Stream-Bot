@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import asyncio
 from discord.errors import Forbidden
+from database.db import (setup_database, get_character_configs, get_guild_settings, get_verification_log_channel, get_admin_log_channel, get_character_role_requirements, get_custom_roles)
 from PIL import Image, ImageOps
 import io
 from PIL import ImageDraw
@@ -11,7 +12,9 @@ import numpy as np
 import pytesseract
 import easyocr
 import re
+import datetime
 from enka_fetcher import get_character_status
+from utils.character_cache import (update_hsr_cache)
 import os
 from dotenv import load_dotenv
 pytesseract.pytesseract.tesseract_cmd = r"D:\Tesseract\tesseract.exe"
@@ -22,18 +25,21 @@ intents.message_content = True
 intents.members = True
 load_dotenv()
 OWNER_ID = int(os.getenv("OWNER_ID"))
-VERIFY_LOG_CHANNEL_ID = int(os.getenv("VERIFY_LOG_CHANNEL_ID"))
+GUILD_ID = int(os.getenv("TEST_GUILD_ID"))
 
 bot = commands.Bot(
     command_prefix="!",
     intents=intents,
-    owner_id=OWNER_ID
+    owner_id=OWNER_ID,
+    allowed_mentions=discord.AllowedMentions(
+        roles=False)
 )
 
 # =========================
 # DEBUG SETTINGS
 # =========================
 EIDOLON_DEBUG = True
+SKIP_OWNER_CHECK = True
 
 # =========================
 # Region of Interests Config
@@ -49,8 +55,13 @@ ROI_DEFS = {
             "x2": 0.112, "y2": 0.996
         },
         "obtained_date": {
-            "x1": 0.871, "y1": 0.308,
-            "x2": 0.986, "y2": 0.350
+            "x1": 0.871, "y1": 0.300,
+            "x2": 0.986, "y2": 0.355
+        },
+        "name": {
+            "x1": 0.755,    "y1": 0.050,
+            "x2": 0.930,    "y2": 0.125
+
         }
     },
 
@@ -60,8 +71,12 @@ ROI_DEFS = {
             "x2": 0.132, "y2": 0.985
         },
         "obtained_date": {
-            "x1": 0.890, "y1": 0.385,
-            "x2": 0.910, "y2": 0.440
+            "x1": 0.850, "y1": 0.315,
+            "x2": 0.965, "y2": 0.385
+        },
+        "name": {
+            "x1": 0.730,    "y1": 0.045,
+            "x2": 0.935,    "y2": 0.125
         }
     },
 
@@ -71,9 +86,13 @@ ROI_DEFS = {
             "x2": 0.089,    "y2": 0.996
         },
         "obtained_date": {
-            "x1": 0.907,    "y1": 0.264,
-            "x2": 0.992,    "y2": 0.314
+            "x1": 0.890,    "y1": 0.274,
+            "x2": 0.990,    "y2": 0.324
         },
+        "name":{
+            "x1": 0.765,    "y1": 0.050,
+            "x2": 0.935,    "y2": 0.125
+        } 
     }
 }
 
@@ -180,6 +199,11 @@ EIDOLON_VARIANCE_RATIO = 0.22
 verification_enabled = False
 reader = easyocr.Reader(['en'], gpu=False)
 bomb_semaphore = asyncio.Semaphore(3)
+VERIFY_CONCURRENCY_LIMIT = 2
+verify_semaphores = {}
+verify_queues = {}
+verify_active_counts = {}
+verify_queue_lock = asyncio.Lock()
 
 stats = {
     "checked": 0,
@@ -188,16 +212,16 @@ stats = {
 }
 
 # =========================
-# FORUM + TAG CONFIG
+# DEFAULT TAG CONFIG
 # =========================
 
-FORUM_CHANNEL_ID = 1463592275106861159
-
-TAG_TO_VERIFY = "Bot Test"
-TAG_IN_PROGRESS = "In Progress"
-TAG_APPROVED = "Approved"
-TAG_DENIED = "Denied"
-TAG_FAILED = "Bot Failed"
+DEFAULT_TAGS = {
+    "verify_tag": "Bot Test",
+    "progress_tag": "In Progress",
+    "approved_tag": "Approved",
+    "denied_tag": "Denied",
+    "failed_tag": "Bot Failed"
+}
 
 
 # =========================
@@ -206,6 +230,11 @@ TAG_FAILED = "Bot Failed"
 
 async def setup_hook():
     try:
+        print("Loading databases...")
+        await setup_database()
+        await update_hsr_cache()
+        print("Databases loaded.")
+        print("Loading extensions...")
         await bot.load_extension("jishaku")
         print("jishaku loaded.")
         await bot.load_extension("cogs.admin")
@@ -213,6 +242,11 @@ async def setup_hook():
         await bot.load_extension("cogs.fun")
         print("cogs.fun loaded.")
         print("Extensions loaded.")
+        
+        bot.loop.create_task(verification_worker())
+        print("Verification worker started.")
+        bot.loop.create_task(cache_worker())
+        print("Cache worker started.")
     except Exception as e:
         print("Extension load failed:", e)
 
@@ -223,7 +257,17 @@ async def on_ready():
     print(f"Logged in as {bot.user}")
     # Sync slash commands
     try:
-        guild = discord.Object(id=1374656072970665995)
+        guild = discord.Object(id=GUILD_ID)
+
+        # bot.tree.clear_commands(guild=guild)
+        # await bot.tree.sync(guild=guild)
+
+        # bot.tree.clear_commands(guild=None)
+        # await bot.tree.sync()
+
+        # bot.tree.copy_global_to(guild=guild)
+        # await bot.tree.sync(guild=guild)
+        # await bot.tree.sync()
         bot.tree.copy_global_to(guild=guild)
         guild_synced = await bot.tree.sync(guild=guild)
         global_synced = await bot.tree.sync()
@@ -232,7 +276,6 @@ async def on_ready():
         print(f"Global synced: {len(global_synced)}")
     except Exception as e:
         print("Slash sync failed:", e)
-    bot.loop.create_task(verification_worker())
 
 
 @bot.event
@@ -277,7 +320,7 @@ async def on_command_error(ctx, error):
         )
         return
 
-    # Cooldown
+    # Cooldown [don't know why we need a cooldown when I won't spam but i guess it's needed? bruh]
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send(
             f"⏳ Try again in {error.retry_after:.1f}s",
@@ -304,21 +347,301 @@ async def verification_worker():
 
         await asyncio.sleep(10)  # wait before next scan
 
+def get_verify_semaphore(guild_id):
+    if guild_id not in verify_semaphores:
+        verify_semaphores[guild_id] = asyncio.Semaphore(
+            VERIFY_CONCURRENCY_LIMIT
+        )
+
+    return verify_semaphores[guild_id]
+
+async def enter_verify_queue(guild_id, request_id):
+    async with verify_queue_lock:
+        semaphore = get_verify_semaphore(guild_id)
+        queue = verify_queues.setdefault(guild_id, [])
+        queue.append(request_id)
+
+        position = len(queue)
+        active_count = verify_active_counts.get(guild_id, 0)
+
+        if position == 1 and active_count < VERIFY_CONCURRENCY_LIMIT:
+            await semaphore.acquire()
+            verify_active_counts[guild_id] = active_count + 1
+            queue.pop(0)
+            return False, 0, active_count, True
+
+        return True, position, active_count, False
+
+async def acquire_verify_slot(guild_id, request_id):
+    while True:
+        async with verify_queue_lock:
+            semaphore = get_verify_semaphore(guild_id)
+            queue = verify_queues.setdefault(guild_id, [])
+            active_count = verify_active_counts.get(guild_id, 0)
+
+            if (
+                queue
+                and queue[0] == request_id
+                and active_count < VERIFY_CONCURRENCY_LIMIT
+            ):
+                await semaphore.acquire()
+                verify_active_counts[guild_id] = active_count + 1
+                queue.pop(0)
+                return
+
+        await asyncio.sleep(0.25)
+
+async def release_verify_slot(guild_id):
+    async with verify_queue_lock:
+        semaphore = get_verify_semaphore(guild_id)
+        active_count = verify_active_counts.get(guild_id, 0)
+
+        if active_count <= 0:
+            return
+
+        verify_active_counts[guild_id] = active_count - 1
+        semaphore.release()
+
+async def leave_verify_queue(guild_id, request_id):
+    async with verify_queue_lock:
+        queue = verify_queues.get(guild_id)
+
+        if queue and request_id in queue:
+            queue.remove(request_id)
+
+async def cache_worker():
+
+    await bot.wait_until_ready()
+
+    while not bot.is_closed():
+
+        try:
+
+            await update_hsr_cache()
+
+        except Exception as e:
+
+            print(
+                f"Cache refresh failed:{e}"
+            )
+
+        await asyncio.sleep(
+            36000
+        )
+
 # =========================
 # Forum Scaning and Processing
 # =========================
 
+async def get_configured_tags(guild_id):
+    settings = await get_guild_settings(guild_id)
+
+    tags = DEFAULT_TAGS.copy()
+
+    if settings:
+        for key in tags:
+            if settings.get(key):
+                tags[key] = settings[key]
+
+    return tags
+
 async def scan_forum_posts(guild):
-    forum = guild.get_channel(FORUM_CHANNEL_ID)
+    settings = await get_guild_settings(guild.id)
+
+    if not settings or not settings.get("forum_channel_id"):
+        return
+
+    forum = guild.get_channel(settings["forum_channel_id"])
     if forum is None:
         return
+
+    tags = await get_configured_tags(guild.id)
 
     # forum.threads = active (non-archived) posts
     for thread in forum.threads:
         tag_names = [tag.name for tag in thread.applied_tags]
 
-        if TAG_TO_VERIFY in tag_names:
+        if tags["verify_tag"] in tag_names:
             await process_thread(thread)
+
+def has_signature_lc(config, lc):
+    if not config or not lc:
+        return False
+
+    return (
+        lc["name"]==
+
+        config[
+            "signature_lightcone_name"
+        ]
+    )
+
+async def verification_log(guild, title, message):
+    log_channel_id = await get_verification_log_channel(guild.id)
+
+    if not log_channel_id:
+        return
+
+    log_channel = guild.get_channel(log_channel_id)
+
+    if not log_channel:
+        return
+
+    await log_channel.send(
+        f"**{title}**\n{message}"
+    )
+
+async def admin_log(guild, title, message):
+    log_channel_id = await get_admin_log_channel(guild.id)
+
+    if not log_channel_id:
+        return
+
+    log_channel = guild.get_channel(log_channel_id)
+
+    if not log_channel:
+        return
+
+    await log_channel.send(
+        f"**{title}**\n{message}"
+    )
+
+def parse_date_text(text):
+    match = re.search(
+        r"(\d{4})\D{1,3}(\d{1,2})\D{1,3}(\d{1,2})",
+        text
+    )
+
+    if not match:
+        return None
+
+    year, month, day = match.groups()
+
+    try:
+        return datetime.date(
+            int(year),
+            int(month),
+            int(day)
+        )
+    except ValueError:
+        return None
+
+def extract_obtained_date_from_image(date_img, thread_id=None):
+    print(">>> ENTERED extract_obtained_date_from_image")
+    scale = 5
+
+    gray = date_img.convert("L")
+    gray = gray.resize(
+        (gray.width * scale, gray.height * scale),
+        Image.Resampling.LANCZOS
+    )
+    gray = gray.filter(
+        ImageFilter.UnsharpMask(radius=1, percent=80)
+    )
+    print("Running Tesseract...")
+    if thread_id:
+        gray.save(f"debug_obtained_date_{thread_id}.png")
+
+    text = pytesseract.image_to_string(
+        gray,
+        config="--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789/-.: Obtainedobtained"
+    )
+
+    print("Obtained Date OCR Raw:", repr(text))
+
+    print("Tesseract finished")
+    parsed = parse_date_text(text)
+
+    if parsed:
+        return parsed, text.strip()
+
+    print("Running EasyOCR...")
+    results = reader.readtext(
+        np.array(date_img),
+        detail=0,
+        paragraph=False
+    )
+
+    easy_text = " ".join(results)
+    print("Obtained Date EasyOCR Raw:", repr(easy_text))
+
+    return parse_date_text(easy_text), easy_text
+
+def uid_sliding_windows(digit_string):
+    if len(digit_string) < 9:
+        return []
+
+    return [
+        digit_string[i:i + 9]
+        for i in range(len(digit_string) - 8)
+    ]
+
+def build_uid_candidate(method, raw_text):
+    digits = re.sub(r"\D", "", raw_text)
+
+    if len(digits) == 9:
+        status = "direct"
+    elif len(digits) > 9:
+        status = "repair"
+    else:
+        status = "invalid"
+
+    return {
+        "method": method,
+        "raw_text": raw_text.strip(),
+        "digits": digits,
+        "status": status
+    }
+
+def find_matching_uid_candidate(expected_uid, debug_data):
+    for candidate in debug_data.get("candidates", []):
+        if candidate["status"] == "invalid":
+            continue
+
+        if candidate["status"] == "direct":
+            if candidate["digits"] == expected_uid:
+                return expected_uid
+
+        if candidate["status"] == "repair":
+            windows = uid_sliding_windows(
+                candidate["digits"]
+            )
+
+            if expected_uid in windows:
+                return expected_uid
+
+    return None
+
+def format_uid_ocr_debug(debug_data):
+    lines = ["OCR Attempts"]
+
+    for candidate in debug_data.get("candidates", []):
+        lines.append("")
+        lines.append(
+            f"{candidate['method']} -> {candidate['status']}"
+        )
+
+        if candidate["digits"]:
+            lines.append(candidate["digits"])
+
+    votes = debug_data.get("votes", {})
+
+    lines.append("")
+
+    if votes:
+        lines.append("Votes")
+
+        for uid, count in votes.items():
+            lines.append("")
+            lines.append(f"{uid} -> {count}")
+    else:
+        lines.append("No valid 9-digit candidates.")
+
+    lines.append("")
+    lines.append("Winner")
+    lines.append(str(debug_data.get("winner")))
+
+    return "\n".join(lines)
 
 def easyocr_uid(img):
     results = reader.readtext(
@@ -330,15 +653,10 @@ def easyocr_uid(img):
     text = " ".join(results)
     print("EasyOCR Raw:", repr(text))
 
-    uid = re.sub(r"\D", "", text)
-
-    if len(uid) == 9:
-        return uid, text
-
-    if len(uid) > 9:
-        return uid[-9:], text
-
-    return None, text
+    return build_uid_candidate(
+        "EasyOCR",
+        text
+    )
 
 def extract_uid_from_image(uid_img, thread_id=None):
     scale = 8
@@ -354,17 +672,40 @@ def extract_uid_from_image(uid_img, thread_id=None):
 
         print(f"OCR Raw ({label}):", repr(text))
 
-        uid = re.sub(r"\D", "", text)
+        return build_uid_candidate(
+            label,
+            text
+        )
 
-        # Exactly 9 digits = perfect result
-        if len(uid) == 9:
-            return uid, text.strip()
+    def print_uid_debug(debug_data):
+        print("========== UID OCR ==========")
 
-        # More than 9 digits = likely junk in front
-        if len(uid) > 9:
-            return uid[-9:], text.strip()
+        for candidate in debug_data["candidates"]:
+            print(candidate["method"])
 
-        return None, text.strip()
+            if candidate["digits"]:
+                print(f"digits: {candidate['digits']}")
+            else:
+                print("digits: None")
+
+            print(f"status: {candidate['status']}")
+            print()
+
+        if debug_data["votes"]:
+            print("Votes")
+
+            for uid, count in debug_data["votes"].items():
+                print(f"{uid} -> {count}")
+
+            print()
+            print("Winner")
+            print(debug_data["winner"])
+        else:
+            print("No valid 9-digit candidates.")
+
+        print("=============================")
+
+    candidates = []
 
     # =========================
     # Attempt 1: Black / White
@@ -390,11 +731,9 @@ def extract_uid_from_image(uid_img, thread_id=None):
         if thread_id:
             bw.save(f"debug_uid_bw_{t}_{thread_id}.png")
 
-        uid, raw = run_ocr(bw, f"BW-{t}")
-
-        if uid:
-            print(f"OCR Success: BW-{t}")
-            return uid, raw
+        candidates.append(
+            run_ocr(bw, f"BW{t}")
+        )
 
     # =========================
     # Attempt 2: Grayscale
@@ -409,11 +748,9 @@ def extract_uid_from_image(uid_img, thread_id=None):
     if thread_id:
         gray2.save(f"debug_uid_gray_{thread_id}.png")
 
-    uid, raw = run_ocr(gray2, "GRAY")
-
-    if uid:
-        print("OCR Success: GRAY")
-        return uid, raw
+    candidates.append(
+        run_ocr(gray2, "GRAY")
+    )
 
     # =========================
     # Attempt 3: Full Color
@@ -426,11 +763,9 @@ def extract_uid_from_image(uid_img, thread_id=None):
     if thread_id:
         color.save(f"debug_uid_color_{thread_id}.png")
 
-    uid, raw = run_ocr(color, "COLOR")
-
-    if uid:
-        print("OCR Success: COLOR")
-        return uid, raw
+    candidates.append(
+        run_ocr(color, "COLOR")
+    )
 
     # =========================
     # EasyOCR Fallback
@@ -439,25 +774,237 @@ def extract_uid_from_image(uid_img, thread_id=None):
 
     # Save debug image
     if thread_id:
-        easy_img = uid_img.resize(
-            (uid_img.width * scale, uid_img.height * scale),
-            Image.Resampling.LANCZOS
-        )
-        easy_img.save(f"debug_uid_easyocr_{thread_id}.png")
+        color.save(f"debug_uid_easyocr_{thread_id}.png")
 
-    uid, easy_raw = easyocr_uid(uid_img)
+    candidates.append(
+        easyocr_uid(color)
+    )
 
+    votes = {}
+    first_seen = {}
 
-    if uid:
-        print("OCR Success: EasyOCR")
-        return uid, easy_raw
+    for index, candidate in enumerate(candidates):
+        if candidate["status"] != "direct":
+            continue
+
+        uid = candidate["digits"]
+        votes[uid] = votes.get(uid, 0) + 1
+
+        if uid not in first_seen:
+            first_seen[uid] = index
+
+    winner = None
+
+    if votes:
+        winner = sorted(
+            votes,
+            key=lambda uid: (-votes[uid], first_seen[uid])
+        )[0]
+
+    debug_data = {
+        "winner": winner,
+        "candidates": candidates,
+        "votes": votes
+    }
+
+    print_uid_debug(debug_data)
+
+    if winner:
+        return winner, debug_data
 
     # =========================
     # All Failed
     # =========================
     print("OCR Failed In All Modes")
 
-    return None, easy_raw
+    return None, debug_data
+
+def extract_name_from_image(name_img, thread_id=None):
+    scale = 5
+
+    # =========================
+    # Prepare enlarged original color ROI once
+    # =========================
+    color = name_img.resize(
+        (name_img.width * scale, name_img.height * scale),
+        Image.Resampling.LANCZOS
+    )
+
+    gray = color.convert("L")
+
+    gray = gray.filter(
+        ImageFilter.UnsharpMask(
+            radius=1,
+            percent=80
+        )
+    )
+
+    if thread_id:
+        color.save(f"debug_name_color_{thread_id}.png")
+        gray.save(f"debug_name_{thread_id}.png")
+
+    config = (
+        "--oem 3 "
+        "--psm 7 "
+        "-c tessedit_char_whitelist="
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz"
+        "0123456789"
+        " .-'"
+    )
+
+    def build_name_candidate(method, raw_text):
+        raw = raw_text.strip()
+        normalized = normalize_name(raw) if raw else ""
+
+        return {
+            "method": method,
+            "raw": raw,
+            "normalized": normalized
+        }
+
+    def run_tesseract(img, label):
+        text = pytesseract.image_to_string(
+            img,
+            config=config
+        )
+
+        print(f"Character Name OCR Raw ({label}):", repr(text))
+
+        return build_name_candidate(
+            label,
+            text
+        )
+
+    candidates = []
+
+    # =========================
+    # Multi Threshold BW OCR
+    # =========================
+    thresholds = [110, 125, 140, 160]
+
+    for t in thresholds:
+        bw = gray.point(lambda x: 255 if x > t else 0)
+
+        if thread_id:
+            bw.save(f"debug_name_bw_{t}_{thread_id}.png")
+
+        candidates.append(
+            run_tesseract(bw, f"BW{t}")
+        )
+
+    # =========================
+    # Grayscale and Color Tesseract
+    # =========================
+    candidates.append(
+        run_tesseract(gray, "GRAY")
+    )
+
+    candidates.append(
+        run_tesseract(color, "COLOR")
+    )
+
+    # =========================
+    # EasyOCR on enlarged original color ROI
+    # =========================
+    print("Trying EasyOCR for character name...")
+
+    results = reader.readtext(
+        np.array(color),
+        detail=0,
+        paragraph=False
+    )
+
+    easy_text = " ".join(results).strip()
+
+    print("Character Name EasyOCR Raw:", repr(easy_text))
+
+    candidates.append(
+        build_name_candidate(
+            "EasyOCR",
+            easy_text
+        )
+    )
+
+    votes = {}
+    first_seen = {}
+    raw_by_name = {}
+    method_by_name = {}
+
+    for index, candidate in enumerate(candidates):
+        normalized = candidate["normalized"]
+
+        if not normalized:
+            continue
+
+        votes[normalized] = votes.get(normalized, 0) + 1
+
+        if normalized not in first_seen:
+            first_seen[normalized] = index
+            raw_by_name[normalized] = candidate["raw"]
+            method_by_name[normalized] = candidate["method"]
+
+    print("========== Character Name OCR ==========")
+
+    for candidate in candidates:
+        print(
+            f"{candidate['method']}: "
+            f"{repr(candidate['raw'])} -> "
+            f"{candidate['normalized'] or 'None'}"
+        )
+
+    winner = None
+
+    if votes:
+        max_votes = max(votes.values())
+        tied = [
+            name
+            for name, count in votes.items()
+            if count == max_votes
+        ]
+        easy_candidate = next(
+            (
+                candidate["normalized"]
+                for candidate in candidates
+                if (
+                    candidate["method"] == "EasyOCR"
+                    and candidate["normalized"] in tied
+                )
+            ),
+            None
+        )
+
+        winner = easy_candidate or sorted(
+            tied,
+            key=lambda name: first_seen[name]
+        )[0]
+
+        print("Votes")
+
+        for name, count in votes.items():
+            print(f"{name} -> {count}")
+
+        print("Winner")
+        print(winner)
+    else:
+        print("No valid character-name candidates.")
+
+    print("========================================")
+
+    if winner:
+        return {
+            "raw": raw_by_name[winner],
+            "normalized": winner,
+            "method": method_by_name[winner],
+            "votes": votes,
+            "candidates": candidates
+        }
+
+    print("Character Name OCR Failed")
+
+    return None
+
+
 
 async def assign_character_roles(thread, api_result):
     # =========================
@@ -470,6 +1017,8 @@ async def assign_character_roles(thread, api_result):
         return
 
     chars = api_result["characters"]
+    tracked_characters = await get_character_configs(guild.id)
+    requirement_configs = await get_character_role_requirements(guild.id)
 
     roles_given = []
     roles_not_given = []
@@ -478,109 +1027,74 @@ async def assign_character_roles(thread, api_result):
     # Helpers
     # =========================
 
-    def get_role(name):
-        return discord.utils.get(guild.roles, name=name)
-
-    async def try_add(role_name, condition):
-        role = get_role(role_name)
+    async def try_add(role_id,should_have):
+        role = guild.get_role(role_id)
 
         if not role:
-            roles_not_given.append(f"{role_name} (missing role)")
             return
 
-        if condition:
+        if should_have:
+
             if role not in member.roles:
-                await member.add_roles(role)
 
-            roles_given.append(role_name)
+                await member.add_roles(
+                    role
+                )
+
+            roles_given.append(
+                role.name
+            )
+
         else:
-            roles_not_given.append(role_name)
 
-    def has_signature_lc(character_name, lc):
-        if not lc:
-            return False
+            roles_not_given.append(
+                role.name
+            )
 
-        if character_name == "Sparkle":
-            return lc["name"] == "Earthly Escapade"
+    tracked_map = {
+        config["character_name"]: config
+        for config in tracked_characters
+    }
 
-        if character_name == "Sparxie":
-            return lc["name"] == "Dazzled by a Flowery World"
+    for requirement in requirement_configs:
 
-        return False
+        name = requirement["character_name"]
+        data = chars.get(name)
+        config = tracked_map.get(name)
+        role_id = requirement["role_id"]
+        role = guild.get_role(role_id)
 
-    # =========================
-    # Character Role Logic
-    # =========================
-    async def process_character(
-        character_name,
-        haver_role,
-        max_role,
-        e0s1_role,
-        e6s5_role
-    ):
-        data = chars.get(character_name)
+        if not role:
+            continue
 
-        # Character not found
         if not data:
-            roles_not_given.extend([
-                haver_role,
-                max_role,
-                e0s1_role,
-                e6s5_role
-            ])
-            return
+            roles_not_given.append(role.name)
+            continue
 
         lc = data["light_cone"]
-        sig_on = has_signature_lc(character_name, lc)
-
-        # Base ownership role
-        await try_add(haver_role, True)
-
-        # Max traces role
-        await try_add(
-            max_role,
-            data["fully_maxed"]
+        superimpose = lc["superimpose"] if lc else 0
+        sig_on = has_signature_lc(
+            config,
+            lc
         )
 
-        # E0S1 role
-        await try_add(
-            e0s1_role,
-            data["eidolons"] >= 0
-            and sig_on
-            and lc
-            and lc["superimpose"] >= 1
+        should_have = (
+            data["eidolons"] >= requirement["required_eidolons"]
+            and superimpose >= requirement["required_superimpose"]
+            and (
+                not requirement["require_signature"]
+                or sig_on
+            )
+            and (
+                not requirement["require_max_traces"]
+                or data["fully_maxed"]
+            )
         )
 
-        # E6S5 role
         await try_add(
-            e6s5_role,
-            data["eidolons"] == 6
-            and sig_on
-            and lc
-            and lc["superimpose"] == 5
+            role_id,
+            should_have
         )
-
-    # =========================
-    # Sparkle Roles
-    # =========================
-    await process_character(
-        "Sparkle",
-        "Sparkle Haver",
-        "Sparkle Maxed Traces",
-        "Sparkle E0S1",
-        "Sparkle E6S5"
-    )
-
-    # =========================
-    # Sparxie Roles
-    # =========================
-    await process_character(
-        "Sparxie",
-        "Sparxie Haver",
-        "Sparxie Maxed Traces",
-        "Sparxie E0S1",
-        "Sparxie E6S5"
-    )
 
     # =========================
     # Logs
@@ -604,6 +1118,94 @@ async def assign_character_roles(thread, api_result):
 
     msg += f"<a:SparxieMeme:1485677074093048021>\n"
     await thread.send(msg)
+    await verification_log(
+        guild,
+        "Role Audit",
+        msg
+    )
+    return roles_given, roles_not_given
+
+async def assign_custom_roles(thread, api_result, obtained_date, detected_character=None):
+    if not obtained_date:
+        return
+
+    guild = thread.guild
+    member = thread.owner
+
+    if member is None:
+        return
+
+    custom_roles = await get_custom_roles(guild.id)
+    chars = api_result["characters"]
+    roles_given = []
+    roles_not_given = []
+    normalized_detected_character = (
+        normalize_name(detected_character)
+        if detected_character
+        else None
+    )
+
+    for config in custom_roles:
+        name = config["character_name"]
+        source_type = config["source_type"]
+
+        if source_type not in ("banner_window", "custom_window"):
+            continue
+
+        if (
+            normalized_detected_character
+            and normalize_name(name) != normalized_detected_character
+        ):
+            continue
+
+        if not chars.get(name):
+            roles_not_given.append(
+                f"{name} (Character not owned)")
+            continue
+
+        try:
+            start_date = datetime.date.fromisoformat(
+                config["start_date"]
+            )
+            end_date = datetime.date.fromisoformat(
+                config["end_date"]
+            )
+        except ValueError:
+            continue
+
+        if not start_date <= obtained_date <= end_date:
+            roles_not_given.append(
+                f"{name} (Outside banner window)")
+            continue
+
+        role = guild.get_role(config["role_id"])
+
+        if not role:
+            roles_not_given.append(
+                f"{name} (Discord role deleted)")
+            continue
+
+        if role not in member.roles:
+            await member.add_roles(role)
+            roles_given.append(role.name)
+        else:
+            roles_given.append(f"{role.name} (Already present)")
+
+    if roles_given:
+
+        msg = (
+            f"**Custom Role Update for {member.display_name}**\n"
+            f"Obtained Date: `{obtained_date.isoformat()}`\n"
+            "Given:\n- " + "\n- ".join(roles_given)
+        )
+        await thread.send(msg)
+        await verification_log(
+            guild,
+            "OCR Custom Role Granted",
+            msg
+        )
+
+    return roles_given, roles_not_given
 
 def normalize_name(text):
     text = text.lower()
@@ -613,19 +1215,20 @@ async def process_thread(thread):
     global stats
 
     # Step 1: mark as in progress
-    await update_thread_tag(thread, TAG_IN_PROGRESS)
+    await update_thread_tag(thread, "progress_tag")
 
     stats["checked"] += 1
     api_result = None
     passed = False
     count = 0
+    obtained_date = None
 
     try:
         images = await get_images_from_thread(thread)
         # No images found
         if len(images) == 0:
             stats["failed"] += 1
-            await update_thread_tag(thread, TAG_FAILED)
+            await update_thread_tag(thread, "failed_tag")
 
             await thread.send(
                 "⚠️ **No images found** within the last 20 messages of this thread.\n"
@@ -659,13 +1262,15 @@ async def process_thread(thread):
                 msg = f"⚠️ Unable to Detect Layout confidence too low \n\n"
                 msg += f"<a:SparxieMeme:1485677074093048021>\n"
                 await thread.send(msg)
-                await update_thread_tag(thread, TAG_FAILED)
+                await update_thread_tag(thread, "failed_tag")
                 return
 
             print(f"Detected layout: {layout}")
 
             # 🔥 DRAW EIDOLON DEBUG OVERLAY HERE
             debug_draw_eidolons(img.copy(), box, layout, thread.id)
+            # 🔥 DRAW ROI DEBUG OVERLAYS HERE
+            debug_draw_rois(img.copy(), box, layout, thread.id)
             # 🔥 ACTUAL EIDOLON DETECTION TEST
             centers = EIDOLON_ROIS[layout]
 
@@ -708,13 +1313,32 @@ async def process_thread(thread):
 
             # OCR UID
             print("Starting OCR")
-            uid, raw_text = extract_uid_from_image(rois["uid"], thread.id)
+            uid, uid_debug_data = extract_uid_from_image(rois["uid"], thread.id)
             print("Extracted UID:", uid)
+            print(">>> About to OCR obtained date")
+
+            try:
+                obtained_date, obtained_raw = extract_obtained_date_from_image(
+                    rois["obtained_date"],
+                    thread.id
+                )
+
+                print("Extracted Obtained Date:", obtained_date)
+                print("Obtained Date Raw:", obtained_raw)
+
+            except Exception as e:
+                print("DATE OCR EXCEPTION:", repr(e))
+                import traceback
+                traceback.print_exc()
+
+                obtained_date = None
+                obtained_raw = None
             api_result = None
 
             if uid:
                 try:
-                    api_result = await get_character_status(int(uid))
+                    tracked_characters=await get_character_configs(thread.guild.id)
+                    api_result = await get_character_status(int(uid), tracked_characters)
                     print("Enka Result:", api_result)
 
                     member = thread.owner
@@ -744,9 +1368,13 @@ async def process_thread(thread):
                         if n
                     )
 
+                    if SKIP_OWNER_CHECK:
+                        ownership_ok = True
+                        print("⚠️ DEBUG: Owner verification skipped.")
+
                     if not ownership_ok:
                         stats["failed"] += 1
-                        await update_thread_tag(thread, TAG_DENIED)
+                        await update_thread_tag(thread, "denied_tag")
 
                         await thread.send(
                             f"⚠️ Ownership check failed.\n"
@@ -761,9 +1389,7 @@ async def process_thread(thread):
                     await thread.send(f"✅Passed owner verification\n\n<a:SparxieMeme:1485677074093048021>")
 
                     chars = api_result["characters"]
-
-                    sparkle = chars.get("Sparkle")
-                    sparxie = chars.get("Sparxie")
+                    tracked_characters=await get_character_configs(thread.guild.id)
 
                     print("Building info message")
 
@@ -771,7 +1397,8 @@ async def process_thread(thread):
                     msg += f"📝Signature: {api_result['signature']}\n"
                     msg += f"🆔 UID: **{uid}**\n\n"
 
-                    for name in ["Sparkle", "Sparxie"]:
+                    tracked_map={x["character_name"]:x for x in tracked_characters}
+                    for name,data in chars.items():
                         data = chars.get(name)
 
                         if not data:
@@ -781,16 +1408,19 @@ async def process_thread(thread):
                         lc = data["light_cone"]
 
                         # Signature LC check
-                        sig_on = False
-                        sig_text = "❌ Off"
+                        config=tracked_map.get(name)
+                        sig_on=has_signature_lc(
+                            config,
+                            lc
+                        )
 
-                        if name == "Sparkle" and lc and lc["name"] == "Earthly Escapade":
-                            sig_on = True
-                            sig_text = "✅ On"
+                        sig_text=(
+                            "✅ On"
+                            if sig_on
+                            else "❌ Off"
+                        )
 
-                        if name == "Sparxie" and lc and lc["name"] == "Dazzled by a Flowery World":
-                            sig_on = True
-                            sig_text = "✅ On"
+
 
                         # LC text
                         if lc:
@@ -839,10 +1469,10 @@ async def process_thread(thread):
                     print("Enka Fetch Failed:", e)
             else:
                 stats["failed"] += 1
-                await update_thread_tag(thread, TAG_FAILED)
+                await update_thread_tag(thread, "failed_tag")
                 await thread.send(
                     "⚠️ **OCR Failed**\n"
-                    f"Raw OCR: `{raw_text if raw_text else 'EMPTY'}`\n"
+                    f"```text\n{format_uid_ocr_debug(uid_debug_data)}\n```\n"
                     "Detected UID: `None`\n"
                     "Please send a clearer screenshot.\n\n"
                     "<a:SparxieMeme:1485677074093048021>")
@@ -860,27 +1490,66 @@ async def process_thread(thread):
         passed = False
 
         if api_result:
-            chars = api_result["characters"]
 
-            sparkle = chars.get("Sparkle")
-            sparxie = chars.get("Sparxie")
+            chars=api_result["characters"]
 
-            # Example rule:
-            # Must have Sparkle and Sparxie
-            if (sparkle or sparxie):
-                passed = True
+            passed=any(
+
+                data is not None
+
+                for data in chars.values()
+
+            )
 
         if passed:
             stats["passed"] += 1
-            await update_thread_tag(thread, TAG_APPROVED)
-            await assign_character_roles(thread, api_result)
+            await update_thread_tag(thread, "approved_tag")
+            character_given, character_not_given = (
+                await assign_character_roles(
+                    thread,
+                    api_result
+                )
+            )
+
+            custom_given = []
+            custom_not_given = []
+
+            if obtained_date:
+
+                custom_given, custom_not_given = (
+                    await assign_custom_roles(
+                        thread,
+                        api_result,
+                        obtained_date
+                    )
+                )
+            print("\n========== ROLE AUDIT ==========")
+
+            print("\nCharacter Roles Given:")
+            for role in character_given:
+                print(f"  ✅ {role}")
+
+            print("\nCharacter Roles Not Given:")
+            for role in character_not_given:
+                print(f"  ❌ {role}")
+
+            print("\nCustom OCR Roles Given:")
+            for role in custom_given:
+                print(f"  ✅ {role}")
+
+            print("\nCustom OCR Roles Not Given:")
+            for role in custom_not_given:
+                print(f"  ❌ {role}")
+
+            print("================================\n")
         else:
             stats["failed"] += 1
-            await update_thread_tag(thread, TAG_DENIED)
+            await update_thread_tag(thread, "denied_tag")
+
 
     except Exception as e:
         stats["failed"] += 1
-        await update_thread_tag(thread, TAG_FAILED)
+        await update_thread_tag(thread, "failed_tag")
         print(f"Error processing thread {thread.id}: {e}")
 
 def has_lock_icon(crop):
@@ -1006,9 +1675,11 @@ def get_eidolon_crop(image, content_box, layout, center):
     ))
 
 
-async def update_thread_tag(thread, new_tag_name):
+async def update_thread_tag(thread, tag_key):
     forum = thread.parent
     available_tags = forum.available_tags
+    tags = await get_configured_tags(thread.guild.id)
+    new_tag_name = tags.get(tag_key, tag_key)
 
     new_tag = discord.utils.get(available_tags, name=new_tag_name)
     if new_tag is None:
@@ -1225,6 +1896,43 @@ def debug_draw_eidolons(image, content_box, layout, thread_id):
         draw.text((cx, cy), str(i+1), fill="yellow")
 
     image.save(f"debug_eidolons_overlay_{thread_id}.png")
+
+def debug_draw_rois(image, content_box, layout, thread_id):
+    draw = ImageDraw.Draw(image)
+
+    colors = {
+        "uid": "lime",
+        "obtained_date": "cyan",
+    }
+
+    for name, roi_def in ROI_DEFS[layout].items():
+
+        left, top, right, bottom = roi_from_percent(
+            content_box,
+            roi_def
+        )
+
+        print(
+            f"[{layout}] {name}: "
+            f"({left}, {top}) -> ({right}, {bottom}) "
+            f"{right-left}x{bottom-top}"
+        )
+
+        draw.rectangle(
+            [left, top, right, bottom],
+            outline=colors.get(name, "red"),
+            width=3
+        )
+
+        draw.text(
+            (left, top - 20),
+            name,
+            fill=colors.get(name, "red")
+        )
+
+    image.save(
+        f"debug_roi_overlay_{layout}_{thread_id}.png"
+    )
 
 
 Token = os.getenv("DISCORD_TOKEN")

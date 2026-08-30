@@ -1,5 +1,10 @@
 .env
 venv/
+database/*.db
+database/__pycache__/
+utils/__pycache__/
+data\]/
+utils/character_cache Old.py
 __pycache__/
 .enka_py
 First test results

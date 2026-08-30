@@ -1,0 +1,334 @@
+{
+  "HSR": {
+    "Seele": {
+      "first_banner": {
+        "start": "2023-04-26",
+        "end": "2023-05-16"
+      }
+    },
+    "Jing Yuan": {
+      "first_banner": {
+        "start": "2023-05-17",
+        "end": "2023-06-06"
+      }
+    },
+    "Silver Wolf": {
+      "first_banner": {
+        "start": "2023-06-07",
+        "end": "2023-06-27"
+      }
+    },
+    "Luocha": {
+      "first_banner": {
+        "start": "2023-06-28",
+        "end": "2023-07-18"
+      }
+    },
+    "Blade": {
+      "first_banner": {
+        "start": "2023-07-19",
+        "end": "2023-08-08"
+      }
+    },
+    "Kafka": {
+      "first_banner": {
+        "start": "2023-08-09",
+        "end": "2023-08-29"
+      }
+    },
+    "Dan Heng • Imbibitor Lunae": {
+      "first_banner": {
+        "start": "2023-08-30",
+        "end": "2023-09-19"
+      }
+    },
+    "Fu Xuan": {
+      "first_banner": {
+        "start": "2023-09-20",
+        "end": "2023-10-10"
+      }
+    },
+    "Jingliu": {
+      "first_banner": {
+        "start": "2023-10-11",
+        "end": "2023-10-26"
+      }
+    },
+    "Topaz & Numby": {
+      "first_banner": {
+        "start": "2023-10-27",
+        "end": "2023-11-14"
+      }
+    },
+    "Huohuo": {
+      "first_banner": {
+        "start": "2023-11-15",
+        "end": "2023-12-05"
+      }
+    },
+    "Argenti": {
+      "first_banner": {
+        "start": "2023-12-06",
+        "end": "2023-12-26"
+      }
+    },
+    "Ruan Mei": {
+      "first_banner": {
+        "start": "2023-12-27",
+        "end": "2024-01-16"
+      }
+    },
+    "Dr. Ratio": {
+      "first_banner": {
+        "start": "2024-01-17",
+        "end": "2024-02-05"
+      }
+    },
+    "Black Swan": {
+      "first_banner": {
+        "start": "2024-02-06",
+        "end": "2024-02-28"
+      }
+    },
+    "Sparkle": {
+      "first_banner": {
+        "start": "2024-02-29",
+        "end": "2024-03-26"
+      }
+    },
+    "Acheron": {
+      "first_banner": {
+        "start": "2024-03-27",
+        "end": "2024-04-16"
+      }
+    },
+    "Aventurine": {
+      "first_banner": {
+        "start": "2024-04-17",
+        "end": "2024-05-07"
+      }
+    },
+    "Robin": {
+      "first_banner": {
+        "start": "2024-05-08",
+        "end": "2024-05-28"
+      }
+    },
+    "Boothill": {
+      "first_banner": {
+        "start": "2024-05-29",
+        "end": "2024-06-18"
+      }
+    },
+    "Firefly": {
+      "first_banner": {
+        "start": "2024-06-19",
+        "end": "2024-07-09"
+      }
+    },
+    "Jade": {
+      "first_banner": {
+        "start": "2024-07-10",
+        "end": "2024-07-30"
+      }
+    },
+    "Yunli": {
+      "first_banner": {
+        "start": "2024-07-31",
+        "end": "2024-08-20"
+      }
+    },
+    "Jiaoqiu": {
+      "first_banner": {
+        "start": "2024-08-21",
+        "end": "2024-09-09"
+      }
+    },
+    "Feixiao": {
+      "first_banner": {
+        "start": "2024-09-10",
+        "end": "2024-10-02"
+      }
+    },
+    "Lingsha": {
+      "first_banner": {
+        "start": "2024-10-03",
+        "end": "2024-10-22"
+      }
+    },
+    "Rappa": {
+      "first_banner": {
+        "start": "2024-10-23",
+        "end": "2024-12-03"
+      }
+    },
+    "Sunday": {
+      "first_banner": {
+        "start": "2024-12-04",
+        "end": "2024-12-25"
+      }
+    },
+    "Fugue": {
+      "first_banner": {
+        "start": "2024-12-26",
+        "end": "2025-01-14"
+      }
+    },
+    "The Herta": {
+      "first_banner": {
+        "start": "2025-01-15",
+        "end": "2025-02-04"
+      }
+    },
+    "Aglaea": {
+      "first_banner": {
+        "start": "2025-02-05",
+        "end": "2025-02-25"
+      }
+    },
+    "Tribbie": {
+      "first_banner": {
+        "start": "2025-02-26",
+        "end": "2025-03-18"
+      }
+    },
+    "Mydei": {
+      "first_banner": {
+        "start": "2025-03-19",
+        "end": "2025-04-08"
+      }
+    },
+    "Castorice": {
+      "first_banner": {
+        "start": "2025-04-09",
+        "end": "2025-04-29"
+      }
+    },
+    "Anaxa": {
+      "first_banner": {
+        "start": "2025-04-30",
+        "end": "2025-05-20"
+      }
+    },
+    "Hyacine": {
+      "first_banner": {
+        "start": "2025-05-21",
+        "end": "2025-06-11"
+      }
+    },
+    "Cipher": {
+      "first_banner": {
+        "start": "2025-06-12",
+        "end": "2025-07-01"
+      }
+    },
+    "Phainon": {
+      "first_banner": {
+        "start": "2025-07-02",
+        "end": "2025-07-10"
+      }
+    },
+    "Archer": {
+      "first_banner": {
+        "start": "2025-07-11",
+        "end": "2099-12-31"
+      }
+    },
+    "Saber": {
+      "first_banner": {
+        "start": "2025-07-11",
+        "end": "2099-12-31"
+      }
+    },
+    "Hysilens": {
+      "first_banner": {
+        "start": "2025-08-13",
+        "end": "2025-09-02"
+      }
+    },
+    "Cerydra": {
+      "first_banner": {
+        "start": "2025-09-03",
+        "end": "2025-09-23"
+      }
+    },
+    "Evernight": {
+      "first_banner": {
+        "start": "2025-09-24",
+        "end": "2025-10-14"
+      }
+    },
+    "Dan Heng • Permansor Terrae": {
+      "first_banner": {
+        "start": "2025-10-15",
+        "end": "2025-11-04"
+      }
+    },
+    "Cyrene": {
+      "first_banner": {
+        "start": "2025-11-05",
+        "end": "2025-12-16"
+      }
+    },
+    "The Dahlia": {
+      "first_banner": {
+        "start": "2025-12-17",
+        "end": "2026-02-12"
+      }
+    },
+    "Yao Guang": {
+      "first_banner": {
+        "start": "2026-02-13",
+        "end": "2026-03-02"
+      }
+    },
+    "Sparxie": {
+      "first_banner": {
+        "start": "2026-03-03",
+        "end": "2026-03-25"
+      }
+    },
+    "Ashveil": {
+      "first_banner": {
+        "start": "2026-03-26",
+        "end": "2026-04-21"
+      }
+    },
+    "Silver Wolf LV.<nobr>999</nobr>": {
+      "first_banner": {
+        "start": "2026-04-22",
+        "end": "2026-05-12"
+      }
+    },
+    "Evanescia": {
+      "first_banner": {
+        "start": "2026-05-13",
+        "end": "2026-05-31"
+      }
+    },
+    "Mortenax Blade": {
+      "first_banner": {
+        "start": "2026-06-01",
+        "end": "2026-07-14"
+      }
+    },
+    "Himeko • Nova": {
+      "first_banner": {
+        "start": "2026-07-15",
+        "end": "2026-08-04"
+      }
+    },
+    "Rin Tohsaka": {
+      "first_banner": {
+        "start": "2026-07-24",
+        "end": "2099-12-31"
+      }
+    },
+    "Gilgamesh": {
+      "first_banner": {
+        "start": "2026-07-24",
+        "end": "2099-12-31"
+      }
+    }
+  }
+}

@@ -7,10 +7,6 @@ Debug = False
 
 #-------------------#
 
-TARGET_CHARACTERS = ["Sparkle", "Sparxie"]
-REQUIRED_TRACE_COUNTS = {
-    "Sparkle": 17,
-    "Sparxie": 18,}
 
 def is_fully_maxed(character):
     for trace in character.traces:
@@ -28,7 +24,7 @@ def check_traces(character):
     return all_good
 
 
-async def get_character_status(uid):
+async def get_character_status(uid, tracked_characters):
     async with enka.HSRClient(enka.hsr.Language.ENGLISH) as api:
         await api.update_assets()
         response = await api.fetch_showcase(uid)
@@ -40,18 +36,28 @@ async def get_character_status(uid):
         "characters": {}
         }
 
-        for name in TARGET_CHARACTERS:
-            result["characters"][name] = None
-
+        for config in tracked_characters:
+            name=config["character_name"]
+            result["characters"][name]=None
+            
         for character in response.characters:
-            if character.name not in TARGET_CHARACTERS:
+            config=None
+
+            for c in tracked_characters:
+
+                if c["character_name"]==character.name:
+
+                    config=c
+                    break
+
+            if not config:
                 continue
 
             # 🔹 Trace Check
             fully_maxed = True
             issues = []
 
-            required_count = REQUIRED_TRACE_COUNTS.get(character.name, 0)
+            required_count=(config["required_trace_count"])
             current_count = len(character.traces)
 
             # Check missing locked nodes
