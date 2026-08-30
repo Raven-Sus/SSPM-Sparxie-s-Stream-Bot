@@ -668,13 +668,13 @@ class Admin(commands.Cog):
         unix_ts = int(now.timestamp())
 
         log_header = (
-            f"ðŸ“ **Manual Verify Used**\n"
-            f"ðŸ‘¤ User: {member.mention}\n"
-            f"ðŸ“› Name: {member.display_name}\n"
-            f"ðŸ†” UID: `{uid}`\n"
-            f"ðŸ“ Channel: {interaction.channel.mention}\n"
-            f"ðŸ•’ Time: <t:{unix_ts}:F>\n"
-            f"â±ï¸ Relative: <t:{unix_ts}:R>\n\n"
+            f"📝 **Manual Verify Used**\n"
+            f"👤 User: {member.mention}\n"
+            f"📛 Name: {member.display_name}\n"
+            f"🆔 UID: `{uid}`\n"
+            f"📍 Channel: {interaction.channel.mention}\n"
+            f"🕒 Time: <t:{unix_ts}:F>\n"
+            f"⏱️ Relative: <t:{unix_ts}:R>\n\n"
         )
 
         # =========================
@@ -705,13 +705,13 @@ class Admin(commands.Cog):
         )
         if __main__.SKIP_OWNER_CHECK:
             ownership_ok = True
-            print("âš ï¸ DEBUG: Owner verification skipped.")
+            print("⚠️ DEBUG: Owner verification skipped.")
 
         if not ownership_ok:
 
             fail_msg = (
                 log_header +
-                "âš ï¸ **Ownership Check Failed**\n"
+                "⚠️ **Ownership Check Failed**\n"
                 f"Discord Name: **{member.display_name}**\n"
                 f"Enka Name: **{enka_name}**\n"
                 f"Signature: {enka_sig}"
@@ -724,7 +724,7 @@ class Admin(commands.Cog):
             )
 
             await interaction.followup.send(
-                f"âš ï¸ Ownership check failed.\n"
+                f"⚠️ Ownership check failed.\n"
                 f"Discord Name: **{member.display_name}**\n"
                 f"Enka Name: **{enka_name}**\n"
                 f"Signature: {enka_sig}" , ephemeral=True
@@ -733,7 +733,7 @@ class Admin(commands.Cog):
 
         # Passed ownership
         await interaction.followup.send(
-            "âœ… Passed owner verification.\n\n"
+            "✅ Passed owner verification.\n\n"
             "<a:SparxieMeme:1485677074093048021>", ephemeral=True
         )
         await __main__.verification_log(
